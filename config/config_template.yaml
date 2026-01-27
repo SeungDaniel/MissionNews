@@ -1,0 +1,70 @@
+# MNAP Configuration
+# [SECURITY WARNING] This is a template. 
+# Copy this to 'config.yaml' and fill in your actual secrets.
+# DO NOT COMMIT 'config.yaml' to version control.
+
+environment: "DEV" # Options: DEV, PROD
+
+paths:
+  dev:
+    inbox: "./data/Mission_Inbox"
+    archive: "./data/archive_mock"
+    temp: "./data/temp"
+  prod:
+    inbox: "./data/Mission_Inbox"
+    archive: "/Volumes/Archive-Storage/Mission"
+    temp: "./data/temp"
+
+google_sheet:
+  json_key_path: "./config/your-google-service-account.json"
+  
+  # Spreadsheets by Type
+  ids:
+    testimony: "YOUR_TESTIMONY_SHEET_ID"
+    mission_news: "YOUR_MISSION_NEWS_SHEET_ID"
+
+  tabs:
+    testimony: "간증영상 관리"
+    testimony_summary: "간증영상 요약"
+    mission_news: "해외선교소식"
+  
+  # Inbox Subfolders (Sheet Type -> Folder Name)
+  subfolders:
+    testimony: "Testimony"
+    mission_news: "MissionNews"
+
+gpu_server:
+  api_url: "http://your-gpu-server-url/api/chat/completions"
+  api_key: "YOUR_GPU_API_KEY"
+  model: "gpt-oss:120b"
+
+stt_server:
+  api_url: "https://your-stt-server.org/model/stt"
+  api_key: "YOUR_STT_API_KEY"
+
+youtube:
+  client_secrets_file: "./config/client_secrets.json"
+
+telegram:
+  bot_token: "YOUR_TELEGRAM_BOT_TOKEN"
+  chat_id: "YOUR_CHANNEL_ID"
+
+prompts:
+  testimony:
+    system: "당신은 선교 소식을 요약하고 기도제목을 정리하는 헌신적인 AI 비서입니다."
+    user: "이 간증의 핵심 내용과 은혜로운 포인트 3가지를 요약해주세요."
+  mission_news:
+    system: "당신은 선교지의 급박한 상황을 전달하는 AI 비서입니다."
+    user: "이 선교 소식의 현지 상황(Fact)과 필요한 기도제목을 요약해주세요."
+
+# Country to Region Tag Mapping
+country_map:
+  "대한민국": "대한민국"
+  "필리핀": "필리핀"
+  "미국": "북미"
+  # (Add other mappings as needed)
+
+# Speaker to Region Mapping (Mission News)
+speaker_map:
+  "선교사A": "지역A"
+  "선교사B": "지역B"

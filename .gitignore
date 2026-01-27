@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment Variables
+.env
+.video_env
+
+# Local Config (contains secrets!)
+config/config.yaml
+config/*.json
+config/*.key
+
+# Data directories
+data/
+archive_mock/
+
+# Mac OS
+.DS_Store

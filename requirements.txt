@@ -1,0 +1,10 @@
+gspread
+oauth2client
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+ffmpeg-python
+requests
+pyyaml
+tqdm
+openai-whisper
