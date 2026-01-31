@@ -63,7 +63,7 @@ class APIClient:
         # 프로젝트 루트 경로 계산
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
-        prompt_path = os.path.join(project_root, "docs", target_file)
+        prompt_path = os.path.join(project_root, "docs", "prompts", target_file)
 
         for attempt in range(max_retries):
             try:
