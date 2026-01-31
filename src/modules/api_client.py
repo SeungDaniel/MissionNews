@@ -50,28 +50,42 @@ class APIClient:
             "mission_news": "System_Prompt_Mission.md"
         }
         
-        target_file = prompt_files.get(prompt_type)
         
-        # 1. 파일에서 로드 시도
-        if target_file:
+        # [수정] 프롬프트 로드 로직 강화 (Retry + No Fallback)
+        import time
+        max_retries = 3
+        
+        target_file = prompt_files.get(prompt_type)
+        if not target_file:
+             # 파일 매핑 자체가 없는 경우 (치명적)
+             raise ValueError(f"지원되지 않는 prompt_type 입니다: {prompt_type}")
+
+        # 프로젝트 루트 경로 계산
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        prompt_path = os.path.join(project_root, "docs", target_file)
+
+        for attempt in range(max_retries):
             try:
-                # 프로젝트 루트 경로 계산 (현재 파일 위치 기준)
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                project_root = os.path.dirname(os.path.dirname(current_dir))
-                prompt_path = os.path.join(project_root, "docs", target_file)
-                
                 if os.path.exists(prompt_path):
                     with open(prompt_path, "r", encoding="utf-8") as f:
                         system_instruction = f.read()
                     print(f"[API] 시스템 프롬프트 로드 완료: {prompt_path}")
+                    break # 성공 시 루프 탈출
+                else:
+                    raise FileNotFoundError(f"프롬프트 파일 없음: {prompt_path}")
             except Exception as e:
-                print(f"[API] ⚠️ 시스템 프롬프트 파일 로드 실패 ({target_file}): {e}")
-
-        # 2. 파일 로드 실패하거나 파일 매핑이 없는 경우 Config 사용
-        if not system_instruction:
-            system_instruction = target_prompt.get('system', "당신은 선교 소식을 요약하는 AI입니다.")
-            
-        user_msg = target_prompt.get('user', "내용을 요약해주세요.")
+                if attempt < max_retries - 1:
+                    print(f"[API] ⚠️ 프롬프트 로드 실패 (재시도 {attempt+1}/{max_retries}): {e}")
+                    time.sleep(0.5)
+                else:
+                    # 최종 실패 시 에러 발생 (작업 중단 -> 미완료 상태 유지)
+                    print(f"[API] ❌ 시스템 프롬프트 로드 최종 실패. 작업을 중단합니다.")
+                    raise RuntimeError(f"시스템 프롬프트 파일 로드 실패: {target_file}")
+        
+        # [수정] Config의 'user' 프롬프트가 System Prompt와 충돌하는 문제를 방지하기 위해 
+        # Config 값을 무시하고, 중립적인 지시문을 사용합니다.
+        user_msg = "위 System Prompt의 지침에 따라, 아래 [원문 내용]을 분석 및 처리하여 지정된 포맷으로 출력해주세요."
 
         # 텍스트가 너무 길면 잘라야 할 수도 있음 (Token Limit)
         # 1시간 분량(약 2~3만자)을 충분히 커버하기 위해 40,000자로 상향

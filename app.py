@@ -46,7 +46,7 @@ def get_inbox_files(sheet_type):
         os.makedirs(inbox_path, exist_ok=True)
         return []
     
-    files = [f for f in os.listdir(inbox_path) if f.startswith('.') is False and f.lower().endswith('.mp4')]
+    files = sorted([f for f in os.listdir(inbox_path) if f.startswith('.') is False and f.lower().endswith('.mp4')])
     return files
 
 def main():
