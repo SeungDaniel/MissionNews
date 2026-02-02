@@ -32,6 +32,14 @@ class TelegramBot:
             res = requests.post(url, json=payload, timeout=10)
             if res.status_code == 200:
                 print("     ㄴ 텔레그램 전송 완료")
+            elif res.status_code == 400 and payload.get("parse_mode") == "Markdown":
+                print(f"     ⚠️ 마크다운 전송 실패 (400). 일반 텍스트로 재시도합니다...")
+                payload.pop("parse_mode") # Remove Markdown option
+                retry_res = requests.post(url, json=payload, timeout=10)
+                if retry_res.status_code == 200:
+                    print("     ㄴ 텔레그램 일반 텍스트 전송 완료 (Fallback)")
+                else:
+                    print(f"     ❌ 재시도 실패: {retry_res.text}")
             else:
                 print(f"     ⚠️ 텔레그램 전송 실패: {res.text}")
         except Exception as e:

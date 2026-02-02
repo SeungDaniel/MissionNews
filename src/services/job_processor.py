@@ -6,6 +6,8 @@ from datetime import datetime
 from src.config_loader import settings
 from src.modules import media, stt_module, api_client, nas_manager, telegram_bot
 from src.modules.gsheet import GSheetManager
+import traceback
+import time
 
 class JobProcessor:
     def __init__(self, log_callback=None, status_callback=None):
@@ -54,6 +56,7 @@ class JobProcessor:
                 
             except Exception as e:
                 self.log(f"❌ 에러 발생 ({job.get('file_name')}): {e}")
+                self.log(traceback.format_exc()) # 상세 에러 로그 출력
                 self.gsheet.update_status(sheet_type, row_idx, "에러", error_msg=str(e))
                 
             if progress_callback:
@@ -229,6 +232,7 @@ class JobProcessor:
 
         # 8. Archive (NAS)
         self.log("   💾 아카이브 저장 중...")
+        time.sleep(1.0) # 파일 잠금 해제 대기 (안전장치)
         
         dest_folder = os.path.join(settings.paths['archive'], f"20{yymmdd[:2]}", yymmdd[2:4]) # YYYY/MM
         if not os.path.exists(dest_folder):

@@ -37,7 +37,7 @@
 ### Phase 1: Foundation (Current)
 - [x] **Core Pipeline**: 파일 감지 -> STT -> 요약 -> 전송 구현 완료
 - [ ] **Stabilization**: 긴 영상 처리 시 타임아웃(Timeout) 및 메모리 이슈 해결
-- [ ] **Error Handling**: 텔레그램 전송 실패(특수문자 등) 및 GSheet 연동 에러 방어 로직 적용
+- [x] **Error Handling**: 텔레그램 전송 실패(특수문자 등) 복구 로직(Plain Text 재전송) 및 상세 로그(Traceback) 적용
 
 ### Phase 2: Refinement
 - [ ] **Performance**: LLM 응답 속도 최적화 및 비동기 처리 강화
