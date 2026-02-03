@@ -50,60 +50,229 @@ def get_inbox_files(sheet_type):
     return files
 
 def main():
+    # --- Authentication ---
+    from src.auth import get_authenticator, get_user_role
+    authenticator = get_authenticator()
+    
+    # Render Login Widget
+    try:
+        authenticator.login()
+    except Exception as e:
+        print(f"Auth Login Error (trying fallback): {e}")
+        authenticator.login('Login', 'main')
+
+    if st.session_state["authentication_status"] is False:
+        st.error('Username/password is incorrect')
+        st.stop()
+    elif st.session_state["authentication_status"] is None:
+        st.warning('Please enter your username and password')
+        st.stop()
+        
+    # --- Authenticated App Start ---
+    user_role = get_user_role()
     st.title("🎬 Evangelical Mission Admin")
     
     # Sidebar: Mode Selection via Tabs is better, but let's put global settings here if needed
     with st.sidebar:
-        st.header("⚙️ Configuration")
-        
-        # 1. Environment Selection
-        current_env = settings.config.get('environment', 'DEV')
-        env_options = ["DEV", "PROD"]
-        try:
-            env_index = env_options.index(current_env)
-        except ValueError:
-            env_index = 0
-            
-        selected_env = st.selectbox("Environment", env_options, index=env_index)
-        
-        # 2. Path Configuration (for current env)
+        # Logout Button & User Info
+        authenticator.logout('Logout', 'main')
+        st.write(f"User: **{st.session_state['name']}** ({user_role})")
         st.divider()
-        st.subheader("📂 Path Settings")
         
-        # Get paths for selected env (safe fallback)
-        env_lower = selected_env.lower()
-        current_paths = settings.config.get('paths', {}).get(env_lower, {})
-        
-        inbox_val = st.text_input("Inbox Path", value=current_paths.get('inbox', ''))
-        
-        # 3. Save Button
-        if st.button("💾 설정 저장 (Save Config)"):
-            new_config = settings.config.copy()
-            new_config['environment'] = selected_env
-            
-            # Update paths for this specific env
-            if 'paths' not in new_config:
-                new_config['paths'] = {}
-            if env_lower not in new_config['paths']:
-                new_config['paths'][env_lower] = {}
+        # --- Admin Only Configuration ---
+        if user_role == 'admin':
+            st.header("⚙️ Configuration")
+            # 1. Environment Selection
+            current_env = settings.config.get('environment', 'DEV')
+            env_options = ["DEV", "PROD"]
+            try:
+                env_index = env_options.index(current_env)
+            except ValueError:
+                env_index = 0
                 
-            new_config['paths'][env_lower]['inbox'] = inbox_val
-            # Preserve other keys if any
-            new_config['paths'][env_lower]['archive'] = current_paths.get('archive', '')
-            new_config['paths'][env_lower]['temp'] = current_paths.get('temp', '')
+            selected_env = st.selectbox("Environment", env_options, index=env_index)
             
-            if settings.save_config(new_config):
-                st.success("✅ 저장되었습니다! 새로고침합니다.")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("❌ 저장 실패")
+            # 2. Path Configuration (for current env)
+            st.divider()
+            st.subheader("📂 Path Settings")
+            
+            # Get paths for selected env (safe fallback)
+            env_lower = selected_env.lower()
+            current_paths = settings.config.get('paths', {}).get(env_lower, {})
+            
+            inbox_val = st.text_input("Inbox Path", value=current_paths.get('inbox', ''))
+            
+            # 3. Save Button
+            if st.button("💾 설정 저장 (Save Config)"):
+                new_config = settings.config.copy()
+                new_config['environment'] = selected_env
+                
+                # Update paths for this specific env
+                if 'paths' not in new_config:
+                    new_config['paths'] = {}
+                if env_lower not in new_config['paths']:
+                    new_config['paths'][env_lower] = {}
+                    
+                new_config['paths'][env_lower]['inbox'] = inbox_val
+                # Preserve other keys if any
+                new_config['paths'][env_lower]['archive'] = current_paths.get('archive', '')
+                new_config['paths'][env_lower]['temp'] = current_paths.get('temp', '')
+                
+                if settings.save_config(new_config):
+                    st.success("✅ 저장되었습니다! 새로고침합니다.")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("❌ 저장 실패")
 
-        st.divider()
-        st.info(f"Current Mode: **{selected_env}**")
-        st.code(f"Inbox: {inbox_val}")
+            st.divider()
+            st.info(f"Current Mode: **{selected_env}**")
+            st.code(f"Inbox: {inbox_val}")
     
-    tab1, tab2 = st.tabs(["📝 신규 파일 등록", "⚡️ 작업 처리"])
+
+    # Ensure all data directories exist
+    os.makedirs(settings.paths['temp'], exist_ok=True)
+    os.makedirs("logs", exist_ok=True)
+    # Note: archive/inbox are handled by their specific logic usually, but good to ensure
+    
+    # Define Tabs
+    tabs_labels = ["📝 신규 파일 등록", "⚡️ 작업 처리"]
+    if user_role == 'admin':
+        tabs_labels.append("🛠 시스템 관리")
+        
+    tabs = st.tabs(tabs_labels)
+    
+    tab1 = tabs[0]
+    tab2 = tabs[1]
+    
+    # Optional Admin Tab
+    if user_role == 'admin':
+        with tabs[2]:
+            st.header("🛠 시스템 관리 (Admin Dashboard)")
+            
+            admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📜 시스템 로그", "📂 파일 관리", "👥 사용자 관리"])
+            
+            # --- SubTab 1: System Logs ---
+            with admin_tab1:
+                st.subheader("실시간 로그 뷰어 (Live Logs)")
+                if st.button("🔄 로그 새로고침"):
+                    st.rerun()
+                    
+                from src.logger import read_logs, APP_LOG_FILE
+                
+                if os.path.exists(APP_LOG_FILE):
+                    log_lines = read_logs(lines=200)
+                    st.text_area("Logs", value="".join(log_lines), height=400, disabled=True)
+                    st.caption(f"Log File Path: {os.path.abspath(APP_LOG_FILE)}")
+                else:
+                    st.info("아직 로그 파일이 생성되지 않았습니다.")
+
+            # --- SubTab 2: File Manager ---
+            with admin_tab2:
+                st.subheader("파일 탐색기 (File Explorer)")
+                
+                # Simple directory browser for Inbox/Archive
+                target_root = st.selectbox("폴더 선택", ["Inbox", "Archive", "Temp", "Logs"])
+                
+                base_path = ""
+                if target_root == "Inbox": base_path = settings.paths['inbox']
+                elif target_root == "Archive": base_path = settings.paths['archive']
+                elif target_root == "Temp": base_path = settings.paths['temp']
+                elif target_root == "Logs": base_path = "logs"
+                
+                if os.path.exists(base_path):
+                    st.markdown(f"**Path:** `{os.path.abspath(base_path)}`")
+                    
+                    # List files
+                    try:
+                        all_items = os.listdir(base_path)
+                        files = [f for f in all_items if os.path.isfile(os.path.join(base_path, f))]
+                        dirs = [d for d in all_items if os.path.isdir(os.path.join(base_path, d))]
+                        
+                        st.write(f"📁 폴더: {len(dirs)}개, 📄 파일: {len(files)}개")
+                        
+                        # Show file table
+                        if files:
+                            file_df = pd.DataFrame(files, columns=["Filename"])
+                            file_df['Size (KB)'] = file_df['Filename'].apply(lambda x: round(os.path.getsize(os.path.join(base_path, x)) / 1024, 2))
+                            
+                            st.dataframe(file_df, use_container_width=True)
+                            
+                            # Simple Action (Download)
+                            selected_file = st.selectbox("작업할 파일 선택", ["선택안함"] + files)
+                            if selected_file != "선택안함":
+                                file_full_path = os.path.join(base_path, selected_file)
+                                with open(file_full_path, "rb") as f:
+                                    btn = st.download_button(
+                                        label=f"⬇️ {selected_file} 다운로드",
+                                        data=f,
+                                        file_name=selected_file
+                                    )
+                        else:
+                            st.info("파일이 없습니다.")
+                    except Exception as e:
+                        st.error(f"Error accessing directory: {e}")
+                else:
+                    st.error(f"경로가 존재하지 않습니다: {base_path}")
+            
+            # --- SubTab 3: User Management ---
+            with admin_tab3:
+                st.subheader("👥 사용자 계정 관리 (User Management)")
+                from src.auth import get_user_manager
+                
+                um = get_user_manager()
+                users = um.get_all_users()
+                
+                # List Users
+                st.write(f"총 {len(users)}명의 사용자가 등록되어 있습니다.")
+                
+                user_df = pd.DataFrame(users)
+                if not user_df.empty:
+                    # Hide password hash
+                    user_display = user_df[['username', 'name', 'role']]
+                    st.dataframe(user_display, use_container_width=True)
+                
+                st.divider()
+                st.subheader("➕ 사용자 추가 (Add User)")
+                
+                with st.form("add_user_form"):
+                    col_u1, col_u2 = st.columns(2)
+                    new_username = col_u1.text_input("아이디 (Username)")
+                    new_name = col_u2.text_input("이름 (Display Name)")
+                    new_pw = col_u1.text_input("비밀번호 (Password)", type="password")
+                    new_role = col_u2.selectbox("권한 (Role)", ["operator", "admin"])
+                    
+                    submit_add = st.form_submit_button("사용자 추가")
+                    
+                    if submit_add:
+                        if new_username and new_name and new_pw:
+                            success, msg = um.add_user(new_username, new_name, new_pw, new_role)
+                            if success:
+                                st.success(f"✅ {msg}")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error(f"❌ {msg}")
+                        else:
+                            st.warning("모든 필드를 입력해주세요.")
+                
+                st.divider()
+                st.subheader("🗑️ 사용자 삭제 (Delete User)")
+                
+                base_users = [u['username'] for u in users if u['username'] != 'admin']
+                if base_users:
+                    del_user = st.selectbox("삭제할 사용자 선택", ["선택안함"] + base_users)
+                    if del_user != "선택안함":
+                        if st.button(f"⚠️ {del_user} 계정 삭제"):
+                            success, msg = um.delete_user(del_user)
+                            if success:
+                                st.success(msg)
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+                else:
+                    st.info("삭제할 수 있는 추가 사용자가 없습니다.")
     
     # ==========================================
     # Tab 1: 신규 파일 등록 (Registration)
@@ -420,6 +589,9 @@ def main():
     with tab2:
         st.header("⏳ 대기 중인 작업")
         
+        # New Dashboard Integration
+        render_job_dashboard()
+        
         col_refresh, col_process = st.columns([1, 4])
         with col_refresh:
             if st.button("🔄 목록 불러오기"):
@@ -534,30 +706,86 @@ def load_pending_jobs():
     log(f"총 {len(jobs)}개의 대기 작업을 찾았습니다.")
     return jobs
 
-def process_jobs(jobs):
-    # Initialize Service with Callbacks
-    from src.services.job_processor import JobProcessor
-    
-    # Define Callbacks to update Streamlit UI
-    def log_callback(msg):
-        log(msg)
-        
-    status_text = st.empty()
-    progress_bar = st.progress(0)
-    
-    def status_callback(msg):
-        status_text.text(msg)
-        
-    def progress_callback(current, total):
-        progress_bar.progress(current / total)
 
-    processor = JobProcessor(log_callback=log_callback, status_callback=status_callback)
+def process_jobs(jobs):
+    """
+    Submit jobs to the background JobManager instead of running synchronously.
+    """
+    from src.job_manager import get_job_manager
+    from src.services.job_processor import JobProcessor
+
+    mgr = get_job_manager()
     
-    # Run
-    processor.process_jobs(jobs, progress_callback=progress_callback)
+    # We need a wrapper function that the JobManager can call
+    # The JobManager expects a function that takes (job_data, progress_callback, log_callback, status_callback)
+    def worker_wrapper(progress_callback, log_callback, status_callback, job_data):
+        processor = JobProcessor(log_callback=log_callback, status_callback=status_callback)
+        # Process single job expects just the 'job' dict
+        # We assume job_data is the job dict
+        processor.process_single_job(job_data)
+        return "Success"
+
+    submitted_count = 0
+    for job in jobs:
+        # Submit to queue
+        mgr.add_job(
+            job_type=job['type'],
+            title=job.get('file_name', 'Unknown'),
+            task_func=worker_wrapper,
+            job_data=job
+        )
+        submitted_count += 1
+        
+    st.success(f"✅ {submitted_count}개의 작업이 백그라운드 큐에 등록되었습니다!")
+    time.sleep(1)
+    st.rerun()
+
+# --- Job Dashboard (Auto-Refreshed) ---
+def render_job_dashboard():
+    from src.job_manager import get_job_manager
+    mgr = get_job_manager()
     
-    status_text.text("모든 작업이 완료되었습니다.")
-    st.balloons()
+    st.markdown("### 📡 백그라운드 작업 현황 (Background Jobs)")
+    
+    # Auto-refresh using empty container and rerun (or just manual refresh button + auto-poll)
+    # Streamlit doesn't support built-in auto-refresh nicely without key hacks or st.poll (experimental).
+    # We will use valid method: st.empty() then sleep interaction, no, that blocks.
+    # We rely on user interaction or manual refresh for now, OR st.rerun with a sleep loop (but that refreshes whole page).
+    # Let's add a manual refresh button prominently.
+    
+    if st.button("🔄 상태 새로고침 (Refresh Status)"):
+        st.rerun()
+
+    jobs = mgr.get_all_jobs()
+    
+    if not jobs:
+        st.info("대기 중이거나 실행 중인 작업이 없습니다.")
+        return
+
+    # Sort: Processing -> Queued -> Completed -> Failed
+    # But get_all_jobs returns unsorted dict values usually.
+    # Let's sort manually: 
+    # Order: processing, queued, failed, completed
+    sort_order = {'processing': 0, 'queued': 1, 'failed': 2, 'completed': 3}
+    jobs.sort(key=lambda x: (sort_order.get(x['status'], 4), x['submitted_at']), reverse=False)
+    
+    for j in jobs:
+        with st.expander(f"[{j['status'].upper()}] {j['title']} ({j['progress']}%)", expanded=(j['status'] in ['processing', 'failed'])):
+            st.write(f"**Status**: {j['status']}")
+            st.write(f"**Submitted**: {j['submitted_at'].strftime('%H:%M:%S')}")
+            
+            # Show Logs
+            if j['logs']:
+                st.code("\n".join(j['logs'][-5:])) # Last 5 logs
+            
+            if j['status'] == 'processing':
+                st.progress(j['progress'] / 100)
+            elif j['status'] == 'completed':
+                st.success("완료됨")
+            elif j['status'] == 'failed':
+                st.error(f"실패: {j['error']}")
+                
+    st.divider()
 
 
 if __name__ == "__main__":
