@@ -1,33 +1,24 @@
 version: '3.8'
 
 services:
+  # Main Application (Streamlit)
   app:
     build: .
     container_name: evangelical_mission_bot
     restart: unless-stopped
     ports:
-      - "8501:8501"
+      - "13002:8501" # External Access via Port 13002
     volumes:
-      # Mount Code (Optional: for development, remove in prod)
-      # - ./:/app
-
       # Persist Data
       - ./data:/app/data
       - ./logs:/app/logs
 
       # Config & Secrets (Mounting specifically to avoid overwriting whole dirs)
-      # Ensure config/config.yaml and .env exist on host
       - ./config/config.yaml:/app/config/config.yaml
       - ./config/readtogether-479613-373cc03b0945.json:/app/config/readtogether-479613-373cc03b0945.json
+      - ./config/users.yaml:/app/config/users.yaml # User DB
       - ./.env:/app/.env
-      # Archive Storage Mount (Update host path as needed)
-      # Example: Mapping a local NAS mount to the container
-      # - /Volumes/Archive-Storage/Mission:/app/data/archive_mock
+
     environment:
       - ENVIRONMENT=PROD
       - TZ=Asia/Seoul
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: '2'
-    #       memory: 4G
