@@ -8,3 +8,7 @@ requests
 pyyaml
 tqdm
 openai-whisper
+
+python-dotenv
+streamlit-authenticator
+bcrypt
