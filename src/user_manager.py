@@ -32,7 +32,23 @@ class UserManager:
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
-                return data.get('users', [])
+                users = data.get('users', [])
+                
+                # Check for plain text passwords and heal them
+                modified = False
+                for user in users:
+                    pwd = user.get('password_hash', '')
+                    # Bcrypt hashes typically start with $2a$ or $2b$
+                    if pwd and not pwd.startswith('$2b$') and not pwd.startswith('$2a$'):
+                        print(f"⚠️ Detected plain text password for user '{user['username']}'. Auto-hashing...")
+                        user['password_hash'] = bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
+                        modified = True
+                
+                if modified:
+                    self._save_users_to_file({"users": users})
+                    print("✅ Users config updated with hashed passwords.")
+                    
+                return users
         except Exception as e:
             print(f"Error loading users: {e}")
             return []
