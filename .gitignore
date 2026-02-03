@@ -18,3 +18,4 @@ archive_mock/
 
 # Mac OS
 .DS_Store
+config/secrets.yaml
