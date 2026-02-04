@@ -19,3 +19,8 @@ archive_mock/
 # Mac OS
 .DS_Store
 config/secrets.yaml
+
+# Claude Code 작업 파일
+.claude_lock_*
+.claude_status.md
+.claude_changes.log

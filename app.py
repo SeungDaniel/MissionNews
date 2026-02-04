@@ -12,6 +12,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from src.config_loader import settings
 from src.modules.gsheet import GSheetManager
 from src.modules import media, stt_module, api_client, nas_manager, telegram_bot
+from src.components.video_uploader import render_video_uploader
+from src.utils.file_validator import sanitize_filename, validate_path_within_base
+from src.utils.input_validator import validate_metadata_form
 from PIL import Image
 from streamlit_cropper import st_cropper
 
@@ -279,28 +282,45 @@ def main():
     # ==========================================
     with tab1:
         st.header("신규 영상 등록")
-        
+
         col_type, col_file = st.columns([1, 2])
-        
+
         with col_type:
             sheet_type_options = {
-                'testimony': '간증영상 (Testimony)', 
+                'testimony': '간증영상 (Testimony)',
                 'mission_news': '해외선교소식 (Mission News)'
             }
             selected_type_key = st.radio(
-                "작업 유형 선택", 
-                list(sheet_type_options.keys()), 
+                "작업 유형 선택",
+                list(sheet_type_options.keys()),
                 format_func=lambda x: sheet_type_options[x]
             )
-            
+
         with col_file:
+            # === 동영상 업로드 섹션 ===
+            subfolders = settings.config['google_sheet']['subfolders']
+            folder_name = subfolders.get(selected_type_key)
+            upload_target_dir = os.path.join(settings.paths['inbox'], folder_name) if folder_name else settings.paths['inbox']
+
+            with st.expander("📤 새 동영상 업로드", expanded=False):
+                uploaded_paths, upload_errors = render_video_uploader(
+                    target_dir=upload_target_dir,
+                    sheet_type=selected_type_key
+                )
+                if uploaded_paths:
+                    # 업로드 완료 후 파일 목록 갱신을 위해 rerun
+                    time.sleep(0.5)
+                    st.rerun()
+
+            st.divider()
+
             # Refresh button (Streamlit auto-reruns on click, so just a button is enough to trigger script re-execution)
             if st.button("🔄 파일 목록 새로고침"):
                 pass
-                
+
             inbox_files = get_inbox_files(selected_type_key)
             if not inbox_files:
-                st.warning("📥 Inbox에 파일이 없습니다.")
+                st.warning("📥 Inbox에 파일이 없습니다. 위 '새 동영상 업로드'를 클릭하여 파일을 추가하세요.")
                 selected_file = None
             else:
                 selected_file = st.selectbox("파일 선택", inbox_files)
@@ -318,7 +338,12 @@ def main():
                 st.subheader("📺 미리보기 (2초 지점)")
                 # Show thumbnail logic
                 folder_name = settings.config['google_sheet']['subfolders'][selected_type_key]
-                file_path = os.path.join(settings.paths['inbox'], folder_name, selected_file)
+                file_path = os.path.join(settings.paths['inbox'], folder_name, sanitize_filename(selected_file))
+
+                # 경로 검증 (Path Traversal 방지)
+                if not validate_path_within_base(file_path, settings.paths['inbox']):
+                    st.error("❌ 잘못된 파일 경로입니다.")
+                    st.stop()
                 
                 if st.button("📸 미리보기 생성 (2초 / 10초)"):
                     with st.spinner("미리보기 추출 중..."):
@@ -447,8 +472,9 @@ def main():
                 st.session_state['auto_crop_enabled'] = auto_crop
 
                 if uploaded_thumb:
-                    # Save Uploaded File
-                    temp_up_path = os.path.join(settings.paths['temp'], f"upload_{uploaded_thumb.name}")
+                    # Save Uploaded File (with filename sanitization)
+                    safe_thumb_name = sanitize_filename(uploaded_thumb.name)
+                    temp_up_path = os.path.join(settings.paths['temp'], f"upload_{safe_thumb_name}")
                     with open(temp_up_path, "wb") as f:
                         f.write(uploaded_thumb.getbuffer())
                     
@@ -509,13 +535,30 @@ def main():
                     pass
                 
                 if st.session_state['is_registering']:
-                    if not name_val:
-                        st.error("이름을 입력해주세요!")
+                    # 입력값 검증
+                    is_valid, validation_errors, cleaned_data = validate_metadata_form(
+                        name=name_val,
+                        country=country_final,
+                        date_val=date_val,
+                        city=extra_data.get('city', ''),
+                        age=extra_data.get('age', ''),
+                        country_map=country_map
+                    )
+
+                    # 경고 메시지 표시 (차단하지 않음)
+                    for err in validation_errors:
+                        if "경고" in err:
+                            st.warning(f"⚠️ {err}")
+
+                    if not is_valid:
+                        for err in validation_errors:
+                            if "경고" not in err:
+                                st.error(f"❌ {err}")
                         st.session_state['is_registering'] = False
                     else:
                         try:
                             # 1. Rename File Logic
-                            formatted_date = date_val.strftime("%y%m%d") # 250101
+                            formatted_date = date_val.strftime("%y%m%d")  # 250101
                             
                             # Apply Naming Rules (Unified)
                             if selected_type_key == 'testimony':

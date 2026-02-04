@@ -1,0 +1,6 @@
+[server]
+maxUploadSize = 2048  # 2GB까지 허용
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false

@@ -10,5 +10,8 @@ tqdm
 openai-whisper
 
 python-dotenv
+streamlit
 streamlit-authenticator
+streamlit-cropper
 bcrypt
+pillow
