@@ -767,8 +767,8 @@ def process_jobs(jobs):
         processor = JobProcessor(log_callback=log_callback, status_callback=status_callback)
         # Process single job expects just the 'job' dict
         # We assume job_data is the job dict
-        processor.process_single_job(job_data)
-        return "Success"
+        result_files = processor.process_single_job(job_data)
+        return result_files  # Return file paths for download
 
     submitted_count = 0
     for job in jobs:
@@ -815,18 +815,48 @@ def render_job_dashboard():
     jobs.sort(key=lambda x: (sort_order.get(x['status'], 4), x['submitted_at']), reverse=False)
     
     for j in jobs:
-        with st.expander(f"[{j['status'].upper()}] {j['title']} ({j['progress']}%)", expanded=(j['status'] in ['processing', 'failed'])):
+        with st.expander(f"[{j['status'].upper()}] {j['title']} ({j['progress']}%)", expanded=(j['status'] in ['processing', 'failed', 'completed'])):
             st.write(f"**Status**: {j['status']}")
             st.write(f"**Submitted**: {j['submitted_at'].strftime('%H:%M:%S')}")
-            
+
             # Show Logs
             if j['logs']:
                 st.code("\n".join(j['logs'][-5:])) # Last 5 logs
-            
+
             if j['status'] == 'processing':
                 st.progress(j['progress'] / 100)
             elif j['status'] == 'completed':
                 st.success("완료됨")
+
+                # Download buttons for result files
+                result_files = j.get('result')
+                if result_files and isinstance(result_files, dict):
+                    st.markdown("#### 📥 결과 파일 다운로드")
+
+                    file_labels = {
+                        'video': ('🎬 비디오', '.mp4'),
+                        'audio': ('🔊 오디오', '.mp3'),
+                        'thumbnail': ('🖼️ 썸네일', '.jpg'),
+                        'text': ('📝 요약 텍스트', '.txt'),
+                        'srt': ('📜 자막(SRT)', '.srt')
+                    }
+
+                    download_cols = st.columns(5)
+                    for idx, (key, (label, ext)) in enumerate(file_labels.items()):
+                        file_path = result_files.get(key)
+                        if file_path and os.path.exists(file_path):
+                            with download_cols[idx]:
+                                with open(file_path, 'rb') as f:
+                                    st.download_button(
+                                        label=label,
+                                        data=f,
+                                        file_name=os.path.basename(file_path),
+                                        key=f"dl_{j['id']}_{key}"
+                                    )
+                        elif file_path:
+                            with download_cols[idx]:
+                                st.caption(f"{label}\n(없음)")
+
             elif j['status'] == 'failed':
                 st.error(f"실패: {j['error']}")
                 

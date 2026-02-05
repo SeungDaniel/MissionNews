@@ -282,13 +282,22 @@ class JobProcessor:
             self.log(f"⚠️ 임시 파일 삭제 중 오류 (무시): {e}")
         
         # 9. Update Sheet
-        # 9. Update Sheet
         self.gsheet.update_status(
-            sheet_type, 
-            row_idx, 
-            "완료", 
+            sheet_type,
+            row_idx,
+            "완료",
             new_filename=new_filename,
             summary_text=summary_text
         )
-            
+
         self.log(f"✅ {name} 처리 완료!")
+
+        # 10. Return result with file paths for download
+        result_files = {
+            'video': video_dest_path,
+            'audio': os.path.join(dest_folder, os.path.splitext(new_filename)[0] + ".mp3"),
+            'thumbnail': os.path.join(dest_folder, os.path.splitext(new_filename)[0] + ".jpg"),
+            'text': os.path.join(dest_folder, txt_filename),
+            'srt': os.path.join(dest_folder, os.path.splitext(new_filename)[0] + ".srt") if srt_path else None
+        }
+        return result_files
