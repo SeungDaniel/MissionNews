@@ -4,7 +4,8 @@ from logging.handlers import RotatingFileHandler
 from datetime import datetime
 
 # Ensure logs directory exists
-LOG_DIR = "logs"
+# Ensure logs directory exists
+LOG_DIR = os.getenv("MNAP_LOG_DIR", "logs")
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR, exist_ok=True)
 

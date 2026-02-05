@@ -320,7 +320,9 @@ def main():
 
             inbox_files = get_inbox_files(selected_type_key)
             if not inbox_files:
-                st.warning("📥 Inbox에 파일이 없습니다. 위 '새 동영상 업로드'를 클릭하여 파일을 추가하세요.")
+                target_folder_inc = os.path.join(settings.paths['inbox'], folder_name) if folder_name else settings.paths['inbox']
+                abs_target_path = os.path.abspath(target_folder_inc)
+                st.warning(f"📥 Inbox에 파일이 없습니다.\n\n📂 **참조 경로:** `{abs_target_path}`\n\n위 경로에 파일을 넣거나 '새 동영상 업로드'를 이용하세요.")
                 selected_file = None
             else:
                 selected_file = st.selectbox("파일 선택", inbox_files)
